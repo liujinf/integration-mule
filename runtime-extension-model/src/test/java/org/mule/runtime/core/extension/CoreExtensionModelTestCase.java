@@ -27,6 +27,7 @@ import static org.mule.runtime.core.api.error.Errors.ComponentIdentifiers.Handle
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.ANY_TYPE;
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.MULE_NAME;
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.MULE_VERSION;
+import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.VOID_TYPE;
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.getExtensionModel;
 import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_PARAMETER_NAME;
 import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_VALUE_PARAMETER_NAME;
@@ -54,6 +55,7 @@ import org.mule.metadata.api.model.impl.DefaultNumberType;
 import org.mule.metadata.api.model.impl.DefaultObjectType;
 import org.mule.metadata.api.model.impl.DefaultStringType;
 import org.mule.metadata.java.api.annotation.ClassInformationAnnotation;
+import org.mule.metadata.message.api.MessageMetadataType;
 import org.mule.runtime.api.meta.model.ExtensionModel;
 import org.mule.runtime.api.meta.model.HasOutputModel;
 import org.mule.runtime.api.meta.model.SubTypesModel;
@@ -138,8 +140,8 @@ public class CoreExtensionModelTestCase {
     assertThat(coreExtensionModel.getExternalLibraryModels(), empty());
     assertThat(coreExtensionModel.getImportedTypes(), empty());
     assertThat(coreExtensionModel.getConfigurationModels(), empty());
-    assertThat(coreExtensionModel.getOperationModels(), hasSize(8));
-    assertThat(coreExtensionModel.getConstructModels(), hasSize(20));
+    assertThat(coreExtensionModel.getOperationModels(), hasSize(16));
+    assertThat(coreExtensionModel.getConstructModels(), hasSize(12));
     assertThat(coreExtensionModel.getConnectionProviders(), empty());
     assertThat(coreExtensionModel.getSourceModels(), hasSize(1));
 
@@ -419,10 +421,10 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void choice() {
-    final ConstructModel choiceModel = coreExtensionModel.getConstructModel("choice").get();
+    final OperationModel choiceModel = coreExtensionModel.getOperationModel("choice").get();
 
-    assertThat(choiceModel.allowsTopLevelDeclaration(), is(false));
-    assertThat(choiceModel.getAllParameterModels(), empty());
+    assertOutputTypes(choiceModel, VOID_TYPE, VOID_TYPE);
+    assertThat(choiceModel.getAllParameterModels(), hasSize(1));
     assertThat(choiceModel.getNestedComponents(), hasSize(2));
 
     final NestedRouteModel whenRouteModel = (NestedRouteModel) choiceModel.getNestedComponents().get(0);
@@ -445,9 +447,10 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void scatterGather() {
-    final ConstructModel scatterGatherModel = coreExtensionModel.getConstructModel("scatterGather").get();
+    final OperationModel scatterGatherModel = coreExtensionModel.getOperationModel("scatterGather").get();
 
-    assertThat(scatterGatherModel.getAllParameterModels(), hasSize(4));
+    assertOutputsListOfMessages(scatterGatherModel);
+    assertThat(scatterGatherModel.getAllParameterModels(), hasSize(5));
 
     assertThat(scatterGatherModel.getAllParameterModels().get(0).getName(), is("timeout"));
     assertThat(scatterGatherModel.getAllParameterModels().get(0).getExpressionSupport(), is(NOT_SUPPORTED));
@@ -480,7 +483,9 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void parallelForeach() {
-    final ConstructModel parallelForeach = coreExtensionModel.getConstructModel("parallelForeach").get();
+    final OperationModel parallelForeach = coreExtensionModel.getOperationModel("parallelForeach").get();
+
+    assertOutputsListOfMessages(parallelForeach);
 
     assertThat(parallelForeach.getModelProperty(SinceMuleVersionModelProperty.class).map(mp -> mp.getVersion().toString())
         .orElse("NO MODEL PROPERTY"), equalTo("4.2.0"));
@@ -489,7 +494,7 @@ public class CoreExtensionModelTestCase {
     assertThat(processorsChain, instanceOf(NestedChainModel.class));
     assertThat(processorsChain.isRequired(), is(true));
 
-    assertThat(parallelForeach.getAllParameterModels(), hasSize(5));
+    assertThat(parallelForeach.getAllParameterModels(), hasSize(6));
 
     final ParameterModel collection = parallelForeach.getAllParameterModels().get(0);
     assertThat(collection.getName(), is("collection"));
@@ -525,16 +530,24 @@ public class CoreExtensionModelTestCase {
     assertThat(targetValue.isRequired(), is(false));
   }
 
+  private void assertOutputsListOfMessages(HasOutputModel model) {
+    MetadataType outputType = model.getOutput().getType();
+    assertThat(outputType, is(instanceOf(ArrayType.class)));
+    assertThat(((ArrayType) outputType).getType(), is(instanceOf(MessageMetadataType.class)));
+    assertThat(model.getOutputAttributes().getType(), equalTo(VOID_TYPE));
+  }
+
   @Test
   public void async() {
-    final ConstructModel asyncModel = coreExtensionModel.getConstructModel("async").get();
+    final OperationModel asyncModel = coreExtensionModel.getOperationModel("async").get();
 
+    assertOutputTypes(asyncModel, VOID_TYPE, VOID_TYPE);
     assertThat(asyncModel.getNestedComponents(), hasSize(1));
     NestableElementModel processors = asyncModel.getNestedComponents().get(0);
     assertThat(processors, instanceOf(NestedChainModel.class));
     assertThat(processors.isRequired(), is(true));
 
-    assertThat(asyncModel.getAllParameterModels(), hasSize(2));
+    assertThat(asyncModel.getAllParameterModels(), hasSize(3));
     assertThat(asyncModel.getAllParameterModels().get(0).getName(), is("name"));
     assertThat(asyncModel.getAllParameterModels().get(0).getExpressionSupport(), is(NOT_SUPPORTED));
     assertThat(asyncModel.getAllParameterModels().get(0).getType(), instanceOf(DefaultStringType.class));
@@ -547,10 +560,11 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void tryScope() {
-    final ConstructModel tryModel = coreExtensionModel.getConstructModel("try").get();
+    final OperationModel tryModel = coreExtensionModel.getOperationModel("try").get();
 
+    assertOutputTypes(tryModel, VOID_TYPE, VOID_TYPE);
     List<ParameterModel> allParameterModels = tryModel.getAllParameterModels();
-    assertThat(allParameterModels, hasSize(2));
+    assertThat(allParameterModels, hasSize(3));
 
     ParameterModel action = allParameterModels.get(0);
     assertThat(action.getName(), is("transactionalAction"));
@@ -567,10 +581,11 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void untilSuccessful() {
-    final ConstructModel untilSuccessful = coreExtensionModel.getConstructModel("untilSuccessful").get();
+    final OperationModel untilSuccessful = coreExtensionModel.getOperationModel("untilSuccessful").get();
 
+    assertOutputTypes(untilSuccessful, ANY_TYPE, ANY_TYPE);
     List<ParameterModel> allParameterModels = untilSuccessful.getAllParameterModels();
-    assertThat(allParameterModels, hasSize(2));
+    assertThat(allParameterModels, hasSize(5));
 
     ParameterModel action = allParameterModels.get(0);
     assertThat(action.getName(), is("maxRetries"));
@@ -589,10 +604,11 @@ public class CoreExtensionModelTestCase {
 
   @Test
   public void firstSuccessful() {
-    final ConstructModel firstSuccessful = coreExtensionModel.getConstructModel("firstSuccessful").get();
+    final OperationModel firstSuccessful = coreExtensionModel.getOperationModel("firstSuccessful").get();
 
+    assertOutputTypes(firstSuccessful, ANY_TYPE, ANY_TYPE);
     List<ParameterModel> allParameterModels = firstSuccessful.getAllParameterModels();
-    assertThat(allParameterModels, hasSize(0));
+    assertThat(allParameterModels, hasSize(3));
   }
 
   @Test

@@ -57,13 +57,6 @@ import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.STR
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.TYPE_LOADER;
 import static org.mule.runtime.core.api.extension.MuleExtensionModelProvider.VOID_TYPE;
 import static org.mule.runtime.extension.api.ExtensionConstants.DYNAMIC_CONFIG_EXPIRATION_DESCRIPTION;
-import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_PARAMETER_DESCRIPTION;
-import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_PARAMETER_NAME;
-import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_VALUE_PARAMETER_DESCRIPTION;
-import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_VALUE_PARAMETER_DISPLAY_NAME;
-import static org.mule.runtime.extension.api.ExtensionConstants.TARGET_VALUE_PARAMETER_NAME;
-import static org.mule.runtime.extension.api.annotation.param.Optional.PAYLOAD;
-import static org.mule.runtime.extension.api.annotation.param.display.Placement.ADVANCED_TAB;
 import static org.mule.runtime.extension.api.error.ErrorConstants.ERROR_TYPE_DEFINITION;
 import static org.mule.runtime.extension.api.error.ErrorConstants.ERROR_TYPE_MATCHER;
 import static org.mule.runtime.extension.api.stereotype.MuleStereotypes.APP_CONFIG;
@@ -81,9 +74,11 @@ import static org.mule.runtime.internal.dsl.DslConstants.CORE_SCHEMA_LOCATION;
 import static org.mule.runtime.internal.dsl.DslConstants.FLOW_ELEMENT_IDENTIFIER;
 
 import org.mule.metadata.api.ClassTypeLoader;
+import org.mule.metadata.api.model.ArrayType;
 import org.mule.metadata.api.model.MetadataType;
 import org.mule.metadata.api.model.ObjectType;
 import org.mule.metadata.api.model.UnionType;
+import org.mule.metadata.message.api.MessageMetadataTypeBuilder;
 import org.mule.runtime.api.meta.model.ModelProperty;
 import org.mule.runtime.api.meta.model.ParameterDslConfiguration;
 import org.mule.runtime.api.meta.model.XmlDslModel;
@@ -113,7 +108,6 @@ import org.mule.runtime.extension.api.property.NoWrapperModelProperty;
 import org.mule.runtime.extension.api.property.SinceMuleVersionModelProperty;
 import org.mule.runtime.extension.api.stereotype.MuleStereotypes;
 import org.mule.runtime.extension.internal.property.NoErrorMappingModelProperty;
-import org.mule.runtime.extension.internal.property.TargetModelProperty;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.reflect.TypeToken;
@@ -147,6 +141,12 @@ class MuleExtensionModelDeclarer {
   final ErrorModel compositeRoutingError = newError(COMPOSITE_ROUTING).withParent(routingError).build();
   final ErrorModel validationError = newError(VALIDATION).withParent(anyError).build();
   final ErrorModel duplicateMessageError = newError(DUPLICATE_MESSAGE).withParent(validationError).build();
+  private final ArrayType arrayOfMessagesMetadataType = BASE_TYPE_BUILDER.arrayType()
+      .of(new MessageMetadataTypeBuilder()
+          .payload(ANY_TYPE)
+          .attributes(ANY_TYPE)
+          .build())
+      .build();
 
   ExtensionDeclarer createExtensionModel() {
 
@@ -171,6 +171,13 @@ class MuleExtensionModelDeclarer {
     declareObject(extensionDeclarer);
     declareFlow(extensionDeclarer);
     declareSubflow(extensionDeclarer);
+    declareConfiguration(extensionDeclarer);
+    declareConfigurationProperties(extensionDeclarer);
+
+    // operations
+    declareUntilSuccessful(extensionDeclarer);
+    declareForEach(extensionDeclarer, TYPE_LOADER);
+    declareAsync(extensionDeclarer);
     declareChoice(extensionDeclarer);
     declareErrorHandler(extensionDeclarer);
     declareTry(extensionDeclarer);
@@ -178,13 +185,6 @@ class MuleExtensionModelDeclarer {
     declareParallelForEach(extensionDeclarer, TYPE_LOADER);
     declareFirstSuccessful(extensionDeclarer);
     declareRoundRobin(extensionDeclarer);
-    declareConfiguration(extensionDeclarer);
-    declareConfigurationProperties(extensionDeclarer);
-    declareAsync(extensionDeclarer);
-    declareForEach(extensionDeclarer, TYPE_LOADER);
-    declareUntilSuccessful(extensionDeclarer);
-
-    // operations
     declareFlowRef(extensionDeclarer);
     declareIdempotentValidator(extensionDeclarer);
     declareLogger(extensionDeclarer);
@@ -352,8 +352,11 @@ class MuleExtensionModelDeclarer {
   }
 
   private void declareAsync(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer async = extensionDeclarer.withConstruct("async")
+    OperationDeclarer async = extensionDeclarer.withOperation("async")
         .describedAs("Processes the nested list of message processors asynchronously.");
+
+    async.withOutput().ofType(VOID_TYPE);
+    async.withOutputAttributes().ofType(VOID_TYPE);
 
     async.withChain().withModelProperty(NoWrapperModelProperty.INSTANCE);
     async.onDefaultParameterGroup()
@@ -594,10 +597,12 @@ class MuleExtensionModelDeclarer {
   }
 
   private void declareUntilSuccessful(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer untilSuccessful = extensionDeclarer.withConstruct("untilSuccessful")
+    OperationDeclarer untilSuccessful = extensionDeclarer.withOperation("untilSuccessful")
         .describedAs("Attempts to route a message to its inner chain in a synchronous manner. " +
             "Routing is considered successful if no error has been raised and, optionally, if the response matches an expression.");
 
+    untilSuccessful.withOutput().ofType(ANY_TYPE);
+    untilSuccessful.withOutputAttributes().ofType(ANY_TYPE);
     untilSuccessful.withChain().withModelProperty(NoWrapperModelProperty.INSTANCE);
 
     untilSuccessful.onDefaultParameterGroup()
@@ -618,11 +623,14 @@ class MuleExtensionModelDeclarer {
   }
 
   private void declareChoice(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer choice = extensionDeclarer.withConstruct("choice")
+    OperationDeclarer choice = extensionDeclarer.withOperation("choice")
         .describedAs("Sends the message to the first message processor whose condition is satisfied. "
             + "If none of the conditions are satisfied, it sends the message to the configured default message processor "
             + "or fails if there is none.")
         .withErrorModel(routingError);
+
+    choice.withOutput().ofType(VOID_TYPE);
+    choice.withOutputAttributes().ofType(VOID_TYPE);
 
     NestedRouteDeclarer when = choice.withRoute("when").withMinOccurs(1);
     when.withChain();
@@ -679,28 +687,32 @@ class MuleExtensionModelDeclarer {
   }
 
   private void declareFirstSuccessful(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer firstSuccessful = extensionDeclarer.withConstruct("firstSuccessful")
+    OperationDeclarer firstSuccessful = extensionDeclarer.withOperation("firstSuccessful")
         .describedAs("Sends a message to a list of message processors until one processes it successfully.");
 
-    firstSuccessful.withRoute("route").withChain();
+    firstSuccessful.withOutput().ofType(ANY_TYPE);
+    firstSuccessful.withOutputAttributes().ofType(ANY_TYPE);
+
+    firstSuccessful.withRoute("route").withMinOccurs(1);
   }
 
   private void declareRoundRobin(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer roundRobin = extensionDeclarer.withConstruct("roundRobin")
+    OperationDeclarer roundRobin = extensionDeclarer.withOperation("roundRobin")
         .describedAs("Send each message received to the next message processor in a circular list of targets.");
 
-    roundRobin.withRoute("route")
-        // it doesn't make sense for it to have less than two routes, but the XSD allows for just one.
-        .withMinOccurs(1)
-        .withChain();
+    roundRobin.withOutput().ofType(ANY_TYPE);
+    roundRobin.withOutputAttributes().ofType(ANY_TYPE);
+    roundRobin.withRoute("route").withMinOccurs(1).withChain();
   }
 
   private void declareScatterGather(ExtensionDeclarer extensionDeclarer, ClassTypeLoader typeLoader) {
-    ConstructDeclarer scatterGather = extensionDeclarer.withConstruct("scatterGather")
+    OperationDeclarer scatterGather = extensionDeclarer.withOperation("scatterGather")
         .describedAs("Sends the same message to multiple message processors in parallel.")
         .withErrorModel(compositeRoutingError);
 
     scatterGather.withRoute("route").withMinOccurs(2).withChain();
+    scatterGather.withOutput().ofType(arrayOfMessagesMetadataType);
+    scatterGather.withOutputAttributes().ofType(VOID_TYPE);
 
     scatterGather.onDefaultParameterGroup()
         .withOptionalParameter("timeout")
@@ -714,33 +726,18 @@ class MuleExtensionModelDeclarer {
         .defaultingTo(Integer.MAX_VALUE)
         .withExpressionSupport(NOT_SUPPORTED)
         .describedAs("This value determines the maximum level of parallelism that will be used by this router.");
-    scatterGather.onDefaultParameterGroup()
-        .withOptionalParameter(TARGET_PARAMETER_NAME)
-        .ofType(STRING_TYPE)
-        .withExpressionSupport(NOT_SUPPORTED)
-        .describedAs(TARGET_PARAMETER_DESCRIPTION)
-        .withLayout(LayoutModel.builder().tabName(ADVANCED_TAB).build());
-
-    scatterGather.onDefaultParameterGroup()
-        .withOptionalParameter(TARGET_VALUE_PARAMETER_NAME)
-        .ofType(STRING_TYPE)
-        .defaultingTo(PAYLOAD)
-        .withExpressionSupport(REQUIRED)
-        .describedAs(TARGET_VALUE_PARAMETER_DESCRIPTION)
-        .withRole(BEHAVIOUR)
-        .withDisplayModel(DisplayModel.builder().displayName(TARGET_VALUE_PARAMETER_DISPLAY_NAME).build())
-        .withLayout(LayoutModel.builder().tabName(ADVANCED_TAB).build())
-        .withModelProperty(new TargetModelProperty());
 
     // TODO MULE-13316 Define error model (Routers should be able to define error type(s) thrown in ModelDeclarer but
     // ConstructModel doesn't support it.)
   }
 
   private void declareParallelForEach(ExtensionDeclarer extensionDeclarer, ClassTypeLoader typeLoader) {
-    ConstructDeclarer parallelForeach = extensionDeclarer.withConstruct("parallelForeach")
+    OperationDeclarer parallelForeach = extensionDeclarer.withOperation("parallelForeach")
         .describedAs("Splits the same message and processes each part in parallel.")
         .withErrorModel(compositeRoutingError).withModelProperty(new SinceMuleVersionModelProperty("4.2.0"));
 
+    parallelForeach.withOutput().ofType(arrayOfMessagesMetadataType);
+    parallelForeach.withOutputAttributes().ofType(VOID_TYPE);
     parallelForeach.withChain().withModelProperty(NoWrapperModelProperty.INSTANCE);;
 
     ParameterDeclarer collectionParam = parallelForeach.onDefaultParameterGroup()
@@ -772,29 +769,15 @@ class MuleExtensionModelDeclarer {
         .defaultingTo(Integer.MAX_VALUE)
         .withExpressionSupport(NOT_SUPPORTED)
         .describedAs("This value determines the maximum level of parallelism that will be used by this router.");
-    parallelForeach.onDefaultParameterGroup()
-        .withOptionalParameter(TARGET_PARAMETER_NAME)
-        .ofType(STRING_TYPE)
-        .withExpressionSupport(NOT_SUPPORTED)
-        .describedAs(TARGET_PARAMETER_DESCRIPTION)
-        .withLayout(LayoutModel.builder().tabName(ADVANCED_TAB).build());
-
-    parallelForeach.onDefaultParameterGroup()
-        .withOptionalParameter(TARGET_VALUE_PARAMETER_NAME)
-        .ofType(STRING_TYPE)
-        .defaultingTo(PAYLOAD)
-        .withExpressionSupport(REQUIRED)
-        .describedAs(TARGET_VALUE_PARAMETER_DESCRIPTION)
-        .withRole(BEHAVIOUR)
-        .withDisplayModel(DisplayModel.builder().displayName(TARGET_VALUE_PARAMETER_DISPLAY_NAME).build())
-        .withLayout(LayoutModel.builder().tabName(ADVANCED_TAB).build())
-        .withModelProperty(new TargetModelProperty());
   }
 
   private void declareTry(ExtensionDeclarer extensionDeclarer) {
-    ConstructDeclarer tryScope = extensionDeclarer.withConstruct("try")
+    OperationDeclarer tryScope = extensionDeclarer.withOperation("try")
         .describedAs("Processes the nested list of message processors, "
             + "within a transaction and with it's own error handler if required.");
+
+    tryScope.withOutput().ofType(VOID_TYPE);
+    tryScope.withOutputAttributes().ofType(VOID_TYPE);
 
     tryScope.onDefaultParameterGroup()
         .withOptionalParameter("transactionalAction")
