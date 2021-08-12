@@ -24,7 +24,6 @@ import org.mule.runtime.api.meta.model.declaration.fluent.ConfigurationDeclarati
 import org.mule.runtime.core.api.execution.ExecutionTemplate;
 import org.mule.runtime.core.api.retry.policy.RetryPolicyTemplate;
 import org.mule.runtime.core.api.util.func.CheckedBiFunction;
-import org.mule.runtime.core.internal.util.CompositeClassLoader;
 import org.mule.runtime.extension.api.runtime.config.ConfigurationStats;
 import org.mule.runtime.extension.api.runtime.operation.CompletableComponentExecutor;
 import org.mule.runtime.extension.api.runtime.operation.CompletableComponentExecutor.ExecutorCallback;
@@ -205,12 +204,11 @@ public final class DefaultExecutionMediator<M extends ComponentModel> implements
       }
       final Thread currentThread = Thread.currentThread();
       final ClassLoader currentClassLoader = currentThread.getContextClassLoader();
-      final CompositeClassLoader compositeClassLoader = new CompositeClassLoader(extensionClassLoader, currentClassLoader);
-      setContextClassLoader(currentThread, currentClassLoader, compositeClassLoader);
+      setContextClassLoader(currentThread, currentClassLoader, extensionClassLoader);
       try {
         executor.execute(context, callback);
       } finally {
-        setContextClassLoader(currentThread, compositeClassLoader, currentClassLoader);
+        setContextClassLoader(currentThread, extensionClassLoader, currentClassLoader);
       }
     }
   }
