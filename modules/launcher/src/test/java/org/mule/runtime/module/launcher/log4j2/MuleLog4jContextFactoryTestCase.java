@@ -144,7 +144,7 @@ public class MuleLog4jContextFactoryTestCase extends AbstractMuleTestCase {
 
   @Test
   @Issue("EE-8094")
-  public void asyncShutDownOfHooks() throws InterruptedException {
+  public void asyncShutDown() throws InterruptedException {
     ArtifactAwareContextSelector contextSelector = mock(ArtifactAwareContextSelector.class);
     MuleLog4jContextFactory factory = new MuleLog4jContextFactory(contextSelector);
     ShutdownCallbackRegistry shutdownCallbackRegistry = factory.getShutdownCallbackRegistry();
@@ -159,25 +159,5 @@ public class MuleLog4jContextFactoryTestCase extends AbstractMuleTestCase {
     for (Thread t : threads) {
       t.join();
     }
-  }
-
-  @Test
-  @Issue("EE-8094")
-  public void asyncDisposeOfFactory() throws InterruptedException {
-    ArtifactAwareContextSelector contextSelector = mock(ArtifactAwareContextSelector.class);
-    MuleLog4jContextFactory factory = new MuleLog4jContextFactory(contextSelector);
-    ShutdownCallbackRegistry shutdownCallbackRegistry = factory.getShutdownCallbackRegistry();
-
-    for (int i = 0; i < SHUTDOWN_HOOKS_NUMBER; i++) {
-      shutdownCallbackRegistry.addShutdownCallback(() -> {
-      });
-    }
-
-    Thread t1 = new Thread(() -> factory.dispose());
-    Thread t2 = new Thread(() -> factory.dispose());
-    t1.start();
-    t2.start();
-    t1.join();
-    t2.join();
   }
 }
