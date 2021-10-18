@@ -9,7 +9,6 @@ package org.mule.runtime.module.launcher.log4j2;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.System.getProperty;
 import static java.lang.System.setProperty;
-import static java.lang.Thread.sleep;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
@@ -29,11 +28,9 @@ import org.mule.runtime.module.launcher.api.log4j2.AsyncLoggerExceptionHandler;
 import org.mule.tck.junit4.AbstractMuleTestCase;
 import org.mule.tck.size.SmallTest;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.core.config.xml.XmlConfigurationFactory;
@@ -127,37 +124,5 @@ public class MuleLog4jContextFactoryTestCase extends AbstractMuleTestCase {
     assertThat(executedHooks.get(), is(0));
     factory.dispose();
     assertThat(executedHooks.get(), is(SHUTDOWN_HOOKS_NUMBER));
-  }
-
-  private Runnable createHookAndShutItDown(ShutdownCallbackRegistry shutdownCallbackRegistry) {
-    return () -> {
-      Cancellable hook = shutdownCallbackRegistry.addShutdownCallback(() -> {
-      });
-      try {
-        sleep(100);
-      } catch (InterruptedException e) {
-
-      }
-      hook.cancel();
-    };
-  }
-
-  @Test
-  @Issue("EE-8094")
-  public void asyncShutDown() throws InterruptedException {
-    ArtifactAwareContextSelector contextSelector = mock(ArtifactAwareContextSelector.class);
-    MuleLog4jContextFactory factory = new MuleLog4jContextFactory(contextSelector);
-    ShutdownCallbackRegistry shutdownCallbackRegistry = factory.getShutdownCallbackRegistry();
-
-    ArrayList<Thread> threads = new ArrayList<>();
-    for (int i = 0; i < SHUTDOWN_HOOKS_NUMBER; i++) {
-      Thread t = new Thread(createHookAndShutItDown(shutdownCallbackRegistry));
-      threads.add(t);
-      t.start();
-    }
-
-    for (Thread t : threads) {
-      t.join();
-    }
   }
 }
