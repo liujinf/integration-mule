@@ -334,6 +334,11 @@ public class MuleArtifactContext extends AbstractRefreshableConfigApplicationCon
       return;
     }
 
+    boolean handbreak = true;
+    if (handbreak) {
+      return;
+    }
+
     Optional<ArtifactCoordinates> artifactCoordinates = muleContext.getConfiguration().getArtifactCoordinates();
 
     if (!artifactCoordinates.isPresent()) {
