@@ -7,8 +7,8 @@
 package org.mule.runtime.config.internal.dsl.spring;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.newBuilder;
-import static net.sf.cglib.proxy.Enhancer.registerCallbacks;
 
+import static net.sf.cglib.proxy.Enhancer.registerStaticCallbacks;
 import static org.mule.runtime.core.internal.util.CompositeClassLoader.from;
 import org.mule.runtime.dsl.api.component.ComponentBuildingDefinition;
 import org.mule.runtime.dsl.api.component.ObjectFactory;
@@ -95,7 +95,7 @@ public class ObjectFactoryClassRepository {
     // from the compatibility module.
     // Setting this to false will generate an excessive amount of different proxy classes loaded by the container CL
     // that will end up in Metaspace OOM.
-    enhancer.setUseCache(true);
+    enhancer.setUseCache(false);
 
     // MG says: this is super important. Generating this variable here prevents the lambda below from
     // keeping a reference to the componentBuildingDefinition, which in turn references a classloader and has
@@ -103,7 +103,7 @@ public class ObjectFactoryClassRepository {
     final boolean prototype = componentBuildingDefinition.isPrototype();
 
     Class<ObjectFactory> factoryBeanClass = enhancer.createClass();
-    registerCallbacks(factoryBeanClass, new Callback[] {
+    registerStaticCallbacks(factoryBeanClass, new Callback[] {
         (MethodInterceptor) (obj, method, args, proxy) -> {
           final boolean eager = !isLazyInitFunction.get();
 
