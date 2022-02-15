@@ -7,7 +7,7 @@
 package org.mule.runtime.config.internal.dsl.spring;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.newBuilder;
-import static net.sf.cglib.proxy.Enhancer.registerStaticCallbacks;
+import static net.sf.cglib.proxy.Enhancer.registerCallbacks;
 
 import static org.mule.runtime.core.internal.util.CompositeClassLoader.from;
 import org.mule.runtime.dsl.api.component.ComponentBuildingDefinition;
@@ -103,7 +103,7 @@ public class ObjectFactoryClassRepository {
     final boolean prototype = componentBuildingDefinition.isPrototype();
 
     Class<ObjectFactory> factoryBeanClass = enhancer.createClass();
-    registerStaticCallbacks(factoryBeanClass, new Callback[] {
+    registerCallbacks(factoryBeanClass, new Callback[] {
         (MethodInterceptor) (obj, method, args, proxy) -> {
           final boolean eager = !isLazyInitFunction.get();
 
