@@ -17,9 +17,11 @@ import org.mule.runtime.api.metadata.DataType;
 import org.mule.runtime.api.metadata.MediaType;
 import org.mule.runtime.api.metadata.TypedValue;
 import org.mule.runtime.api.streaming.CursorProvider;
+import org.mule.runtime.api.streaming.bytes.CursorStream;
 import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.api.streaming.CursorProviderFactory;
 import org.mule.runtime.core.internal.util.collection.TransformingIterator;
+import org.mule.runtime.core.internal.util.message.stream.UnclosableCursorStream;
 import org.mule.runtime.core.privileged.event.BaseEventContext;
 import org.mule.sdk.api.runtime.operation.Result;
 
@@ -471,5 +473,20 @@ public final class MessageUtils {
     }
 
     return builder.build();
+  }
+
+  /**
+   * Decorates input value.
+   *
+   * @param v value to be decorated
+   *
+   * @return decorated value
+   */
+  public static Object decorateInput(Object v) {
+    if (v instanceof CursorStream) {
+      return new UnclosableCursorStream((CursorStream) v);
+    } else {
+      return v;
+    }
   }
 }

@@ -15,6 +15,7 @@ import static org.mule.runtime.module.extension.internal.util.IntrospectionUtils
 import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.core.api.el.ExpressionManager;
 import org.mule.runtime.core.api.event.CoreEvent;
+import org.mule.runtime.core.internal.util.message.MessageUtils;
 import org.mule.runtime.core.privileged.event.BaseEventContext;
 import org.mule.runtime.extension.api.annotation.param.ParameterGroup;
 import org.mule.runtime.module.extension.api.loader.java.type.FieldElement;
@@ -91,7 +92,8 @@ public class ParameterGroupObjectBuilder<T> {
       String name = field.getName();
       if (hasParameter.test(name)) {
         Object resolvedValue = resolveValue(new StaticValueResolver<>(parameters.apply(name)), context);
-        Object value = context == null || context.resolveCursors() ? resolveCursor(resolvedValue) : resolvedValue;
+        Object value = context == null || context.resolveCursors() ? resolveCursor(resolvedValue, MessageUtils::decorateInput)
+            : resolvedValue;
         field.set(object, value);
       }
     }

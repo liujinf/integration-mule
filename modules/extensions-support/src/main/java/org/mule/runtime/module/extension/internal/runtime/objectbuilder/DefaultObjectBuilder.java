@@ -26,6 +26,7 @@ import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.api.lifecycle.Initialisable;
 import org.mule.runtime.api.lifecycle.InitialisationException;
 import org.mule.runtime.core.api.MuleContext;
+import org.mule.runtime.core.internal.util.message.MessageUtils;
 import org.mule.runtime.module.extension.internal.runtime.ValueResolvingException;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ParameterValueResolver;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ValueResolver;
@@ -118,7 +119,9 @@ public class DefaultObjectBuilder<T> implements ObjectBuilder<T>, Initialisable,
     for (Map.Entry<FieldSetter, ValueResolver<Object>> entry : resolvers.entrySet()) {
       final Object resolvedValue = resolveValue(entry.getValue(), context);
 
-      entry.getKey().set(object, context == null || context.resolveCursors() ? resolveCursor(resolvedValue) : resolvedValue);
+      entry.getKey().set(object,
+                         context == null || context.resolveCursors() ? resolveCursor(resolvedValue, MessageUtils::decorateInput)
+                             : resolvedValue);
     }
 
     injectFields(object, name, encoding, getMuleVersion(), reflectionCache);
